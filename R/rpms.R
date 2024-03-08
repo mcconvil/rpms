@@ -1,0 +1,171 @@
+###############################################################################
+#' Recursive Partitioning for Modeling Survey Data (rpms)
+#'
+#' This package provides a function \code{rpms} to produce an \code{rpms} object 
+#' and method functions that operate on them. 
+#' The \code{rpms} object is a representation of a regression tree achieved
+#' by recursively partitioning the dataset, fitting the specified linear model
+#' on each node separately.
+#' The recursive partitioning algorithm has an unbiased variable selection
+#' and accounts for the sample design.
+#' The algorithm accounts for one-stage of stratification and clustering as
+#' well as unequal probability of selection.
+#' There are also functions for producing random forest estimator 
+#' (a list of \code{rpms} objects), a boosted regression tree and tree 
+#' based zero-inflated model.
+#' 
+#' @docType package
+#' @name rpms-package
+#' 
+#' @useDynLib rpms
+#' @importFrom Rcpp sourceCpp
+#' @importFrom stats terms
+#' @importFrom stats na.omit
+#' @importFrom stats as.formula
+#' @importFrom stats formula
+#' @importFrom stats var
+#' @importFrom stats model.matrix
+#' @importFrom stats cov
+#' @importFrom stats predict
+#' 
+NULL
+
+#############################################################################
+#' CE Consumer expenditure data 2015
+#'
+#' A dataset containing consumer unit characteristics, assets and expenditure 
+#' data from the Bureau of Labor Statistics' Consumer Expenditure Survey 
+#' public use interview data file.
+#' 
+#' @format A data frame with 68,415 observations on 47 variables:
+#' 
+#' @section Sample-design information:
+#' \describe{
+#' \item{NEWID}{Consumer unit identifying variable, constructed using the first 
+#'              seven digits of NEWID BLS derived}
+#' \item{PSU}{Primary Sampling Unit code for the 21 biggest clusters}
+#' \item{CID}{Cluster Identifier for all clusters, (created using PSU, 
+#'            REGION, STATE, and POPSIZE) not part of CE data}
+#' \item{QINTRVMO}{Month for which data was collected}          
+#' \item{FINLWT21}{Final sample weight to make inference to total population}
+#' }
+#' 
+#' @section Location of Consumer Unit:
+#' \describe{
+#' \item{STATE}{State FIPS code}
+#' \item{REGION}{Region code: 1 Northeast; 2 Midwest; 3 South; 4 West}
+#' \item{BLS_URBN}{Urban = 1, Rural = 2}
+#' \item{POPSIZE}{Population size class of PSU: 1-biggest 5-smallest}
+#' }
+#' 
+#' @section Housing and transportation:
+#' \describe{
+#' \item{CUTENURE}{Housing tenure: 1 Owned with mortgage; 
+#'          2 Owned without mortgage
+#'          3 Owned mortgage not reported; 4 Rented; 
+#'          5 Occupied without payment of cash rent; 6 Student housing}
+#' \item{ROOMSQ}{Number of rooms, including finished living areas 
+#'          and excluding all baths}
+#' \item{BATHRMQ}{Number of bathrooms}
+#' \item{BEDROOMQ}{Number of bedrooms}                    
+#' \item{VEHQ}{Number of owned vehicles}
+#' \item{VEHQL}{Number of leased vehicles}
+#' }
+#' 
+#' @section Family Information:
+#' \describe{
+#' \item{FAM_TYPE}{CU code based on relationship of members to reference person  
+#'          (children incldue blood-related, step and adopted):
+#'          1 Married Couple only; 
+#'          2 Married Couple, children (oldest < 6 years old);
+#'          3 Married Couple, children (oldest 6 to 17 years old);
+#'          4 Married Couple, children (oldest > 17 years old);
+#'          5 All other Married Couple CUs
+#'          6 One parent (male), children (at least one child < 18 years old);
+#'          7 One parent (female), children (at least one child < 18 years old);
+#'          8 Single consumers; 9 Other CUs}
+#' \item{FAM_SIZE}{Number of members in CU}
+#' \item{PERSLT18}{Number of people <18 yrs old}
+#' \item{PERSOT64}{Number of people >64 yrs old}
+#' \item{NO_EARNR}{Number of earners}
+#' }
+#' 
+#' @section Primary Earner Information:
+#' \describe{
+#' \item{AGE}{Age of primary earner}
+#' \item{EDUCA}{Education level coded:
+#'                1 None; 2 1st-8th Grade; 3 some HS; 4 HS; 
+#'                5 Some college; 6 AA degree; 7 Bachelors degree; 
+#'                8 Advanced degree}
+#' \item{SEX}{Gender Code: F (Female); M (Male)}
+#' \item{MARITAL}{Marital Status Coded: 1 Married; 2 Widowed; 3 Divorced;
+#'                4 Separated; 5 Never Married}
+#' \item{MEMBRACE}{Race code: 1 White; 2 Black; 3 Native American; 4 Asian; 
+#'             5 Pacific Islander; 6 Multi-race}
+#' \item{HORIGIN}{Hispanic, Latino, or Spanish origin?  Y (Yes); N (No)}
+#' \item{ARM_FORC}{Member of armed forces?  Y (Yes);  N (No)}
+#' \item{IN_COLL}{Currently enrolled in college?  Full (full time); Part (part time); No}
+#' }
+#' 
+#' @section Labor Status of Primary Earner:
+#' \describe{
+#' \item{EARNER}{Earn income: Y (Yes); N (No)}
+#' 
+#' \item{EARNTYPE}{1 Full time all year; 2 Part time all year; 
+#'                 3 Full time part of the year; 2 Part time part of the year; }  
+#' \item{OCCUCODE}{The job in which the member received the most earnings during 
+#'                 the past 12 months fits best in the following category:
+#'                 01 Administrator, manager; 02 Teacher; 
+#'                 03 Professional Administrative support, technical, sales;
+#'                 04 Administrative support, including clerical;
+#'                 05 Sales, retail; 06 Sales, business goods and services;
+#'                 07 Technician; 08 Protective service;
+#'                 09 Private household service; 10 Other service; 
+#'                 11 Machine operator, assembler, inspector;
+#'                 12 Transportation operator;
+#'                 13 Handler, helper, laborer;
+#'                 14 Mechanic, repairer, precision production;
+#'                 15 Construction, mining; 16 Farming; 
+#'                 17 Forestry, fishing, grounds-keeping;
+#'                 18 Armed forces} 
+#' \item{INCOMEY}{Type of employment:
+#'                1 An employee of a PRIVATE company, business, or individual
+#'                2 A Federal government employee
+#'                3 A State government employee
+#'                4 A local government employee
+#'                5 Self-employed in OWN business, professional practice or farm
+#'                6 Working WITHOUT PAY in family business or farm}
+#' \item{INCNONWK}{Reason did not work during the past 12 months:
+#'                  1 Retired; 2 Home maker; 3 School; 4 health;
+#'                  5 Unable to find work; 6 Doing something else}
+#' }
+#' 
+#' @section Income: 
+#' \describe{                 
+#' \item{FINCBTAX}{Amount of CU income before taxes in past 12 months}
+#' \item{SALARYX}{Amount of wage or salary income received in past 12 months, 
+#'                before any deductions } 
+#' \item{SOCRRX}{Amount income received from Social Security and Railroad Retirement in past 12 months}
+#' }
+#' 
+#' @section Assetts and Liabilities:
+#' \describe{
+#' \item{IRAX}{Total value of all retirement accounts}
+#' \item{LIQUIDX}{Value of liquid assets}
+#' \item{STOCKX}{Total value of all directly-held stocks, bonds}
+#' \item{STUDNTX}{Amount owed on all student loans}
+#' }
+#' 
+#' @section Expenditures:  
+#' \describe{          
+#' \item{TOTEXPCQ}{Total expenditures for current quarter}   
+#' \item{TOTXEST}{Total taxes paid (estimated)}
+#' \item{EHOUSNGC}{Total expenditures for housing paid this quarter}              
+#' \item{HEALTHCQ}{Expenditures on health care quarter}
+#' \item{FOODCQ}{Expenditure on food this quarter}
+#' \item{TOBACCCQ}{Tobacco and smoking supplies this quarter}
+#' \item{FOOTWRCQ}{Expenditure on footware1 this quarter}
+#' } end describe
+#' 
+#' @source \url{https://www.bls.gov/cex/pumd_data.htm}
+"CE"
